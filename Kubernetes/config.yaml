@@ -1,0 +1,11 @@
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hotel-config
+  namespace: hotel-app
+data:
+  SPRING_PROFILES_ACTIVE: production
+  DB_HOST: postgres-service
+  DB_PORT: "5432"
+  DB_NAME: hotel_db
