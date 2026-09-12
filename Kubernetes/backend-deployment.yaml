@@ -1,0 +1,45 @@
+# backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hotel-backend
+  namespace: hotel-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hotel-backend
+  template:
+    metadata:
+      labels:
+        app: hotel-backend
+    spec:
+      containers:
+      - name: hotel-backend
+        image: your-registry.com/hotel-backend:latest
+        ports:
+        - containerPort: 8080
+        envFrom:
+        - configMapRef:
+            name: hotel-config
+        - secretRef:
+            name: hotel-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 5
