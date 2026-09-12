@@ -1,0 +1,51 @@
+// HotelController.java
+@RestController
+@RequestMapping("/api/hotels")
+@CrossOrigin(origins = "http://localhost:8080")
+public class HotelController {
+    @Autowired
+    private HotelService hotelService;
+    
+    @GetMapping
+    public ResponseEntity<List<HotelDTO>> searchHotels(
+            @RequestParam String checkIn,
+            @RequestParam String checkOut,
+            @RequestParam(required = false) Integer guests) {
+        return ResponseEntity.ok(hotelService.searchAvailableHotels(checkIn, checkOut, guests));
+    }
+    
+    @PostMapping("/{hotelId}/book")
+    public ResponseEntity<BookingResponse> bookRoom(
+            @PathVariable Long hotelId,
+            @RequestBody BookingRequest request) {
+        return ResponseEntity.ok(hotelService.createBooking(hotelId, request));
+    }
+}
+
+// HotelService.java
+@Service
+public class HotelService {
+    @Autowired
+    private HotelRepository hotelRepository;
+    @Autowired
+    private BookingRepository bookingRepository;
+    
+    @Transactional
+    public BookingResponse createBooking(Long hotelId, BookingRequest request) {
+        Hotel hotel = hotelRepository.findById(hotelId)
+            .orElseThrow(() -> new ResourceNotFoundException("Hotel not found"));
+            
+        if (!isRoomAvailable(hotel, request)) {
+            throw new BookingConflictException("Room not available");
+        }
+        
+        Booking booking = new Booking();
+        booking.setHotel(hotel);
+        booking.setGuestName(request.getGuestName());
+        booking.setCheckIn(LocalDate.parse(request.getCheckIn()));
+        booking.setCheckOut(LocalDate.parse(request.getCheckOut()));
+        booking.setStatus(BookingStatus.CONFIRMED);
+        
+        return BookingResponse.fromEntity(bookingRepository.save(booking));
+    }
+}
