@@ -1,0 +1,231 @@
+#---HTML----
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <title>Hotel Booking</title>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Luxury Hotels</h1>
+            <div class="search-bar">
+                <input type="date" id="checkIn" class="date-input">
+                <input type="date" id="checkOut" class="date-input">
+                <input type="number" id="guests" placeholder="Guests" min="1" max="10">
+                <button onclick="searchHotels()" class="btn-primary">Search</button>
+            </div>
+        </header>
+        <main id="hotelResults" class="hotel-grid"></main>
+        <div id="bookingModal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <div id="bookingForm"></div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
+#----CSS-----
+/* styles.css */
+:root {
+    --primary: #2c3e50;
+    --accent: #3498db;
+    --success: #27ae60;
+    --danger: #e74c3c;
+    --light: #ecf0f1;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+header {
+    background: var(--primary);
+    color: white;
+    padding: 2rem;
+    text-align: center;
+}
+
+.search-bar {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.date-input, input[type="number"] {
+    padding: 0.75rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn-primary:hover { background: #2980b9; }
+
+.hotel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+    padding: 2rem;
+}
+
+.hotel-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.hotel-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.hotel-info { padding: 1rem; }
+
+.hotel-info h3 { margin-bottom: 0.5rem; }
+
+.price { 
+    color: var(--success);
+    font-size: 1.25rem;
+    font-weight: bold;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 500px;
+    width: 90%;
+}
+
+.hidden { display: none; }
+
+#----JACRIPT-----
+// app.js
+const API_BASE = 'http://localhost:8080/api';
+
+async function searchHotels() {
+    const checkIn = document.getElementById('checkIn').value;
+    const checkOut = document.getElementById('checkOut').value;
+    const guests = document.getElementById('guests').value;
+    
+    try {
+        const response = await fetch(
+            `${API_BASE}/hotels?checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`
+        );
+        
+        if (!response.ok) throw new Error('Search failed');
+        
+        const hotels = await response.json();
+        displayHotels(hotels);
+    } catch (error) {
+        showError('Failed to search hotels. Please try again.');
+    }
+}
+
+function displayHotels(hotels) {
+    const container = document.getElementById('hotelResults');
+    container.innerHTML = hotels.map(hotel => `
+        <div class="hotel-card">
+            <img src="${hotel.imageUrl}" alt="${hotel.name}" loading="lazy">
+            <div class="hotel-info">
+                <h3>${hotel.name}</h3>
+                <p>${hotel.location}</p>
+                <p class="price">${hotel.pricePerNight}/night</p>
+                <p>${hotel.availableRooms} rooms available</p>
+                <button onclick="openBookingModal(${hotel.id})" class="btn-primary">
+                    Book Now
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function openBookingModal(hotelId) {
+    const modal = document.getElementById('bookingModal');
+    const form = document.getElementById('bookingForm');
+    
+    form.innerHTML = `
+        <h2>Book Room</h2>
+        <form onsubmit="submitBooking(event, ${hotelId})">
+            <div class="form-group">
+                <label>Full Name:</label>
+                <input type="text" id="guestName" required>
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="email" required>
+            </div>
+            <button type="submit" class="btn-primary">Confirm Booking</button>
+        </form>
+    `;
+    
+    modal.classList.remove('hidden');
+}
+
+async function submitBooking(event, hotelId) {
+    event.preventDefault();
+    
+    const bookingData = {
+        guestName: document.getElementById('guestName').value,
+        email: document.getElementById('email').value,
+        checkIn: document.getElementById('checkIn').value,
+        checkOut: document.getElementById('checkOut').value
+    };
+    
+    try {
+        const response = await fetch(`${API_BASE}/hotels/${hotelId}/book`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingData)
+        });
+        
+        if (!response.ok) throw new Error('Booking failed');
+        
+        const result = await response.json();
+        alert(`Booking confirmed! ID: ${result.bookingId}`);
+        closeModal();
+    } catch (error) {
+        showError('Booking failed. Room may no longer be available.');
+    }
+}
+
+function closeModal() {
+    document.getElementById('bookingModal').classList.add('hidden');
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'error-message';
+    errorDiv.textContent = message;
+    document.body.prepend(errorDiv);
+    setTimeout(() => errorDiv.remove(), 5000);
+}
